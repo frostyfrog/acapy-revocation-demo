@@ -22,7 +22,7 @@ from acapy_client.api.present_proof_v10 import (
     get_present_proof_records,
     send_proof_request,
 )
-from acapy_client.api.schema import publish_schema, get_schema_created
+from acapy_client.api.schema import publish_schema, get_schemas_created
 from acapy_client.api.wallet import create_did, set_public_did
 from acapy_client.models import (
     PostTransactionsConnIdSetEndorserRoleTransactionMyJob,
@@ -233,7 +233,7 @@ async def main():
     # assert isinstance(result, SchemaSendResult)
 
     result = describe(
-        "Retrieve our created schema ID", get_schema_created
+        "Retrieve our created schema ID", get_schemas_created
     )(
         client=issuer,
         schema_name="revocation_testing",
