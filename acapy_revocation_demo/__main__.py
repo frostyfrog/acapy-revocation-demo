@@ -9,11 +9,15 @@ from typing import Optional, Union, cast
 from acapy_client import Client
 from acapy_client.api.connection import create_invitation, receive_invitation
 from acapy_client.api.credential_definition import publish_cred_def
+from acapy_client.api.endorse_transaction import (
+    post_transactions_conn_id_set_endorser_info,
+    post_transactions_conn_id_set_endorser_role,
+)
 from acapy_client.api.issue_credential_v10 import (
     issue_credential_automated,
 )
 from acapy_client.api.revocation import publish_revocations, revoke_credential
-from acapy_client.api.ledger import accept_taa, fetch_taa
+from acapy_client.api.ledger import accept_taa, fetch_taa, post_ledger_register_nym
 from acapy_client.api.present_proof_v10 import (
     get_present_proof_records,
     send_proof_request,
@@ -21,6 +25,7 @@ from acapy_client.api.present_proof_v10 import (
 from acapy_client.api.schema import publish_schema
 from acapy_client.api.wallet import create_did, set_public_did
 from acapy_client.models import (
+    PostTransactionsConnIdSetEndorserRoleTransactionMyJob,
     CreateInvitationRequest,
     CredAttrSpec,
     CredentialDefinitionSendRequest,
@@ -87,11 +92,11 @@ async def main():
     issuer = Client(base_url=ISSUER_URL)
 
     # Establish Connection {{{
-    holder_conn_record = describe("Create new invitation in holder", create_invitation)(
+    holder_conn_record = describe("Create new invitation in endorser", create_invitation)(
         client=holder, json_body=CreateInvitationRequest(), auto_accept="true"
     )
 
-    issuer_conn_record = describe("Receive invitation in issuer", receive_invitation)(
+    issuer_conn_record = describe("Receive invitation in author", receive_invitation)(
         client=issuer,
         json_body=ReceiveInvitationRequest.from_dict(
             holder_conn_record.invitation.to_dict()
@@ -101,8 +106,8 @@ async def main():
 
     # Prepare for writing to ledger {{{
     did_info = describe(
-        "Create new DID for publishing to ledger in issuer", create_did
-    )(client=issuer, json_body=DIDCreate()).result
+        "Create new DID for publishing to ledger in endorser", create_did
+    )(client=holder, json_body=DIDCreate()).result
 
     print("Publishing DID through https://selfserve.indiciotech.io")
     response = httpx.post(
@@ -119,23 +124,79 @@ async def main():
         return
     print("DID Published")
 
-    result = describe(
+    taa_agreement_result = describe(
         "Retrieve Transaction Author Agreement from the ledger", fetch_taa
-    )(client=issuer).result
+    )(client=holder).result
+
+    result = describe("Sign transaction author agreement", accept_taa)(
+        client=holder,
+        json_body=TAAAccept(
+            mechanism="on_file",
+            text=taa_agreement_result.taa_record.text,
+            version=taa_agreement_result.taa_record.version,
+        ),
+    )
+
+    result = describe("Set DID as public DID for endorser", set_public_did)(
+        client=holder, did=did_info.did
+    ).result
+    # }}}
+
+    author_did_info = describe(
+        "Create new DID for publishing to ledger in author", create_did
+    )(client=issuer, json_body=DIDCreate()).result
+
+    result_nym = describe(
+        "Publish the author did to the ledger", post_ledger_register_nym
+    )(client=holder, did=author_did_info.did, verkey=author_did_info.verkey)
+    print(result_nym)
+
+
+    print(
+        "issuer_conn_record:",
+        json.dumps(
+            issuer_conn_record.to_dict() if issuer_conn_record else {},
+            indent=2,
+            sort_keys=True,
+        ),
+    )
+    result = describe(
+        "Set Endorser Role", post_transactions_conn_id_set_endorser_role
+    )(client=holder, conn_id=holder_conn_record.connection_id, transaction_my_job=PostTransactionsConnIdSetEndorserRoleTransactionMyJob.TRANSACTION_ENDORSER)
+
+    result = describe(
+        "Set Author Role", post_transactions_conn_id_set_endorser_role
+    )(client=issuer, conn_id=issuer_conn_record.connection_id, transaction_my_job=PostTransactionsConnIdSetEndorserRoleTransactionMyJob.TRANSACTION_AUTHOR)
+    result = describe(
+        "Set Endorser info on author", post_transactions_conn_id_set_endorser_info
+    )(client=issuer, conn_id=issuer_conn_record.connection_id, endorser_did=did_info.did)
+    
 
     result = describe("Sign transaction author agreement", accept_taa)(
         client=issuer,
         json_body=TAAAccept(
             mechanism="on_file",
-            text=result.taa_record.text,
-            version=result.taa_record.version,
+            text=taa_agreement_result.taa_record.text,
+            version=taa_agreement_result.taa_record.version,
+        ),
+    )
+    print({
+            "network": "testnet",
+            "did": did_info.did,
+            "verkey": did_info.verkey,
+        })
+    print(
+        "Response:",
+        json.dumps(
+            result_nym.to_dict() if result_nym else {},
+            indent=2,
+            sort_keys=True,
         ),
     )
 
-    result = describe("Set DID as public DID for issuer", set_public_did)(
-        client=issuer, did=did_info.did
-    ).result
-    # }}}
+    # post_transactions_conn_id_set_endorser_info,
+    # post_transactions_conn_id_set_endorser_role,
+    return
 
     # Prepare Credential ledger artifacts {{{
     result: Optional[Union[TxnOrSchemaSendResult, SchemaSendResult]] = describe(
