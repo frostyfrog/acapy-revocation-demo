@@ -22,7 +22,7 @@ from acapy_client.api.present_proof_v10 import (
     get_present_proof_records,
     send_proof_request,
 )
-from acapy_client.api.schema import publish_schema
+from acapy_client.api.schema import publish_schema, get_schema_created
 from acapy_client.api.wallet import create_did, set_public_did
 from acapy_client.models import (
     PostTransactionsConnIdSetEndorserRoleTransactionMyJob,
@@ -44,6 +44,7 @@ from acapy_client.models import (
     V10CredentialExchange,
     V10CredentialProposalRequestMand,
     V10PresentationSendRequestRequest,
+    SchemasCreatedResult,
 )
 from acapy_client.models.indy_proof_request_non_revoked import IndyProofRequestNonRevoked
 from acapy_client.models.v10_presentation_exchange import V10PresentationExchange
@@ -214,6 +215,7 @@ async def main():
         "Publish schema to the ledger", publish_schema
     )(
         client=issuer,
+        create_transaction_for_endorser=False,
         json_body=SchemaSendRequest(
             attributes=["firstname", "age"],
             schema_name="revocation_testing",
@@ -222,14 +224,29 @@ async def main():
     )
 
     assert result
-    assert isinstance(result, SchemaSendResult)
+    print("================FROSTY")
+    print(result)
+    print(type(result).__name__)
+    print("================FROSTY")
+    assert isinstance(result, TxnOrSchemaSendResult)
+    # result = result.sent
+    # assert isinstance(result, SchemaSendResult)
+
+    result = describe(
+        "Retrieve our created schema ID", get_schema_created
+    )(
+        client=issuer,
+        schema_name="revocation_testing",
+        schema_version="0.1.0",
+    )
+
     result = describe(
         "Publish credential definition with revocation support", publish_cred_def
     )(
         client=issuer.with_timeout(30),
         json_body=CredentialDefinitionSendRequest(
             revocation_registry_size=10,
-            schema_id=result.schema_id,
+            schema_id=result.schema_ids[0],
             support_revocation=True,
         ),
     )
