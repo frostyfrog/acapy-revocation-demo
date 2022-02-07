@@ -11,7 +11,7 @@ services:
       start
         -e http://holder:3000
         --webhook-url http://webhook-listener:8080
-        --label holder
+        --label endorser
         --inbound-transport http 0.0.0.0 3000
         --outbound-transport http
         --genesis-url https://raw.githubusercontent.com/Indicio-tech/indicio-network/master/genesis_files/pool_transactions_testnet_genesis
@@ -78,6 +78,7 @@ services:
         --auto-request-endorsement
         --auto-write-transactions
         --endorser-protocol-role author
+        --endorser-alias endorser
     depends_on:
       - tails
       - webhook-listener

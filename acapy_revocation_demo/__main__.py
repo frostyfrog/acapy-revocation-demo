@@ -92,14 +92,14 @@ async def main():
     issuer = Client(base_url=ISSUER_URL)
 
     # Establish Connection {{{
-    holder_conn_record = describe("Create new invitation in endorser", create_invitation)(
-        client=holder, json_body=CreateInvitationRequest(), auto_accept="true"
+    issuer_conn_record = describe("Create new invitation in author", create_invitation)(
+        client=issuer, json_body=CreateInvitationRequest(), auto_accept="true", alias="endorser",
     )
 
-    issuer_conn_record = describe("Receive invitation in author", receive_invitation)(
-        client=issuer,
+    holder_conn_record = describe("Receive invitation in endorser", receive_invitation)(
+        client=holder,
         json_body=ReceiveInvitationRequest.from_dict(
-            holder_conn_record.invitation.to_dict()
+            issuer_conn_record.invitation.to_dict()
         ),
     )
     # }}}
@@ -164,6 +164,7 @@ async def main():
         "Set Endorser Role", post_transactions_conn_id_set_endorser_role
     )(client=holder, conn_id=holder_conn_record.connection_id, transaction_my_job=PostTransactionsConnIdSetEndorserRoleTransactionMyJob.TRANSACTION_ENDORSER)
 
+    time.sleep(1)
     result = describe(
         "Set Author Role", post_transactions_conn_id_set_endorser_role
     )(client=issuer, conn_id=issuer_conn_record.connection_id, transaction_my_job=PostTransactionsConnIdSetEndorserRoleTransactionMyJob.TRANSACTION_AUTHOR)
@@ -180,6 +181,9 @@ async def main():
             version=taa_agreement_result.taa_record.version,
         ),
     )
+    result = describe("Set DID as public DID for author", set_public_did)(
+        client=issuer, did=author_did_info.did
+    ).result
     print("Waiting 10 seconds for revocation to propagate...")
     time.sleep(10)
     print({
@@ -409,6 +413,18 @@ async def main():
     presentations = describe("List presentations", get_present_proof_records)(client=issuer)
     for pres in presentations.results:
         presentation_result_summary(pres)
+    sleep(15)
+
+    print({
+            "network": "endorser",
+            "did": did_info.did,
+            "verkey": did_info.verkey,
+        })
+    print({
+            "network": "author",
+            "did": author_did_info.did,
+            "verkey": author_did_info.verkey,
+        })
     # }}}
 
 
