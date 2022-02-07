@@ -1,7 +1,7 @@
 version: '3'
 services:
   holder: # Endorser
-    image: bcgovimages/aries-cloudagent:py36-1.16-1_0.7.0
+    image: bcgovimages/aries-cloudagent:py36-1.16-1_0.7.3
     ports:
       - 3050:3000
       - 3051:3001
@@ -34,12 +34,14 @@ services:
         --wallet-key insecure
         --log-level debug
         --auto-provision
+        --auto-endorse-transactions
+        --endorser-protocol-role endorser
     depends_on:
       - tails
       - webhook-listener
 
   issuer: # Author
-    image: bcgovimages/aries-cloudagent:py36-1.16-1_0.7.0
+    image: bcgovimages/aries-cloudagent:py36-1.16-1_0.7.3
     ports:
       - 3052:3000
       - 3053:3001
@@ -73,6 +75,9 @@ services:
         --wallet-key insecure
         --log-level debug
         --auto-provision
+        --auto-request-endorsement
+        --auto-write-transactions
+        --endorser-protocol-role author
     depends_on:
       - tails
       - webhook-listener

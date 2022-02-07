@@ -169,7 +169,7 @@ async def main():
     )(client=issuer, conn_id=issuer_conn_record.connection_id, transaction_my_job=PostTransactionsConnIdSetEndorserRoleTransactionMyJob.TRANSACTION_AUTHOR)
     result = describe(
         "Set Endorser info on author", post_transactions_conn_id_set_endorser_info
-    )(client=issuer, conn_id=issuer_conn_record.connection_id, endorser_did=did_info.did)
+    )(client=issuer, conn_id=issuer_conn_record.connection_id, endorser_did=did_info.did, endorser_name="endorser")
     
 
     result = describe("Sign transaction author agreement", accept_taa)(
@@ -180,10 +180,17 @@ async def main():
             version=taa_agreement_result.taa_record.version,
         ),
     )
+    print("Waiting 10 seconds for revocation to propagate...")
+    time.sleep(10)
     print({
             "network": "testnet",
             "did": did_info.did,
             "verkey": did_info.verkey,
+        })
+    print({
+            "network": "testnet",
+            "did": author_did_info.did,
+            "verkey": author_did_info.verkey,
         })
     print(
         "Response:",
@@ -196,7 +203,7 @@ async def main():
 
     # post_transactions_conn_id_set_endorser_info,
     # post_transactions_conn_id_set_endorser_role,
-    return
+    # return
 
     # Prepare Credential ledger artifacts {{{
     result: Optional[Union[TxnOrSchemaSendResult, SchemaSendResult]] = describe(
