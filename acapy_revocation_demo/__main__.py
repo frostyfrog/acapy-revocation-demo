@@ -232,6 +232,8 @@ async def main():
     # result = result.sent
     # assert isinstance(result, SchemaSendResult)
 
+    time.sleep(2)
+
     result = describe(
         "Retrieve our created schema ID", get_schemas_created
     )(
